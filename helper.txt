@@ -18,7 +18,6 @@ Everything that learns parameters from data must be **fitted only on training fo
 * Decide final evaluation: single hold-out test set or nested CV for research-quality estimate.
 
 ---
-
 ### 1) Exploratory Data Analysis (EDA) — *do this before modeling but do not leak target info into preprocessing*
 
 Useful commands: `df.info()`, `df.dtypes`, `df.describe()`, `df.head()`, `df.tail()`, `df.nunique()`, `.isna().sum()`
