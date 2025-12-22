@@ -10,19 +10,33 @@ class Outliercapping(BaseEstimator,TransformerMixin):
         self.bounds = {}
 
     def fit(self,X,y=None):
-        for col in self.feature_list:
-            self.bounds[col] = (
-                X[col].quantile(self.lower_quantile),
-                X[col].quantile(self.upper_quantile))
+        is_df=isinstance(X,pd.DataFrame)
+        for i,col in enumerate(self.feature_list):
+            data_col=X[col] if is_df else X[:,i]
+
+            self.bounds[i] = (
+                np.nanpercentile(data_col, self.lower_quantile * 100),
+                np.nanpercentile(data_col, self.upper_quantile * 100))
         return self
     
     def transform(self,X):
-        X= X.copy()
-        for col in self.feature_list:
-            lower, upper = self.bounds[col]
-            # Use np.clip to cap the values
-            X[col] = np.clip(X[col], lower, upper)
-        return X
+        
+        if isinstance(X,pd.DataFrame):
+            X_array=X.values.copy()
+            is_pandas=True
+            original_columns=X.columns
+            original_index=X.index
+        else:
+            X_array=np.array(X).copy()
+            is_pandas=False
+
+        for i in range(len((self.feature_list))):
+            lower, upper = self.bounds[i]
+            # Use np.clip to cap the values, if dataframe
+            X_array[:,i]=np.clip(X_array[:,i],lower,upper)
+        if is_pandas:
+            return pd.DataFrame(X_array,columns=original_columns,index=original_index)
+        return X_array
 
 
 class year_handling(BaseEstimator, TransformerMixin):
@@ -92,32 +106,32 @@ class NeighborhoodLowerCardinality(BaseEstimator, TransformerMixin):
         )
         return X
 
-class NeighborhoodTargetEncoder(BaseEstimator, TransformerMixin):
-    def __init__(self, smoothing=5):
-        self.smoothing = smoothing
-        self.mapping_ = None
-        self.global_mean_ = None
+# class NeighborhoodTargetEncoder(BaseEstimator, TransformerMixin):
+#     def __init__(self, smoothing=5):
+#         self.smoothing = smoothing
+#         self.mapping_ = None
+#         self.global_mean_ = None
         
-    def fit(self, X, y):
-        """
-        X: pd.DataFrame with column 'Neighborhood'
-        y: target array (log prices if using log scale)
-        """
-        X = X.copy()
-        y = pd.Series(y, name="target") 
-        self.global_mean_ = y.mean()
+#     def fit(self, X, y):
+#         """
+#         X: pd.DataFrame with column 'Neighborhood'
+#         y: target array (log prices if using log scale)
+#         """
+#         X = X.copy()
+#         y = pd.Series(y, name="target") 
+#         self.global_mean_ = y.mean()
         
-        # Compute mean and counts per neighborhood
-        stats = (pd.concat([X[['Neighborhood']], y], axis=1).groupby('Neighborhood')['target'].agg(['mean', 'count']))
-        # Apply smoothing
-        stats['encoded'] = (stats['mean'] * stats['count'] + self.global_mean_ * self.smoothing) / (stats['count'] + self.smoothing)
-        self.mapping_ = stats['encoded'].to_dict()
-        return self
+#         # Compute mean and counts per neighborhood
+#         stats = (pd.concat([X[['Neighborhood']], y], axis=1).groupby('Neighborhood')['target'].agg(['mean', 'count']))
+#         # Apply smoothing
+#         stats['encoded'] = (stats['mean'] * stats['count'] + self.global_mean_ * self.smoothing) / (stats['count'] + self.smoothing)
+#         self.mapping_ = stats['encoded'].to_dict()
+#         return self
     
-    def transform(self, X):
-        X = X.copy()
-        # Map neighborhood to encoded value, unseen categories get global mean
-        X['Neighborhood'] = X['Neighborhood'].map(self.mapping_).fillna(self.global_mean_)
-        return X
+    # def transform(self, X):
+    #     X = X.copy()
+    #     # Map neighborhood to encoded value, unseen categories get global mean
+    #     X['Neighborhood'] = X['Neighborhood'].map(self.mapping_).fillna(self.global_mean_)
+    #     return X
 
 
